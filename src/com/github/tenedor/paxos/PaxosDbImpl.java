@@ -147,14 +147,30 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
       // certify our era is up-to-date and return null for obsolete requests
       if (!certifyLeaderEraLP(leaderEra, leaderId)) return null;
       
-      // Iterate through each state in liveBallots; if it is less than paxosId
-      // but unresolved, ask the leader for the result, and if it is more than
-      // paxosId, add it to the statesAfterId set
-
-      Set<Integer> unknownResults = new HashSet<Integer>();
-      Set<PaxosState> statesAfterId = new HashSet<PaxosState>();
+      // collect the ids of missing ledger values known by the leader
+      Set<Integer> resultsToLearn = new HashSet<Integer>();
+      for (int unknownId = ledgerTopId + 1; unknownId <= paxosId; unknownId++) {
+        resultsToLearn.add(unknownId);
+      }
       
-      // TODO
+      // Iterate through live ballots. Ballots with ids greater than paxosId
+      // should be reported. Also, avoid sending requests to learn known
+      // results.
+      Set<PaxosState> statesAfterId = new HashSet<PaxosState>();
+      for (int id : liveBallots.keySet()) {
+        PaxosState ballot = liveBallots.get(id);
+        
+        // collect ballots with ids above paxosId
+        if (id > paxosId) {
+          statesAfterId.add(ballot);
+          
+        // no need to learn resolved ballots
+        } else if (ballot.hasSucceeded) {
+          resultsToLearn.remove(id);
+        }
+      }
+      
+      // TODO - request resultsToLearn, perhaps in a separate thread
 
       return statesAfterId;
     }

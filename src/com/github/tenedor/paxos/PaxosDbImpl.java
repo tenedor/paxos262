@@ -179,12 +179,17 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   @Override
   public boolean acceptBallot(PaxosState ballot) throws RemoteException {
     synchronized(paxosRWLock) {
-      // return false for obsolete requests
-      if (ballot.leaderEra < leaderEra) return false;
+      // TODO - use certifyLeaderEraLP
 
-      liveBallots = null;
-      // TODO
-      return true;
+      // return false for obsolete requests
+      if (ballot.leaderEra < leaderEra) {
+        return false;
+
+      // else, store the ballot and return true
+      } else {
+        liveBallots.put(ballot.paxosId, ballot);
+        return true;
+      }
     }
   }
 

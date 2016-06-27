@@ -141,7 +141,34 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
    */
   private void updateLedger() {
     synchronized(paxosRWLock) {
-      // TODO
+      while (true) {
+        // TODO - handle the case where this machine is the leader
+        
+        // loop until the next paxos value has not yet been passed
+        PaxosState s = liveBallots.get(ledgerTopId + 1);
+        if (s == null || !s.hasSucceeded) {
+          break;
+        }
+        
+        // confirm that the state machine is progressing in lockstep
+        assert(ledger.size() == ledgerTopId - ledgerBottomId + 1);
+        assert(ledgerTopId + 1 == s.paxosId);
+        
+        // construct the next ledger entry
+        int previousHash = ledger.get(ledgerTopId).cumulativeHash;
+        LedgerEntry entry = new LedgerEntry(s.value, previousHash);
+        
+        // add the ledger entry
+        ledger.add(entry);
+        
+        // update the database
+        // TODO - use entry.value.requestId to guard against double-evaluating
+        // requests
+        localDb.put(entry.value.key, entry.value.value);
+
+        // update the ledger top id
+        ledgerTopId++;
+      }
     }
   }
 

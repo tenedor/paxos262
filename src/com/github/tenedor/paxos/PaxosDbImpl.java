@@ -135,6 +135,15 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
 
   // Ledger and Database
   // -------------------
+  
+  /**
+   * Add passed ballots to the ledger and database.
+   */
+  private void updateLedger() {
+    synchronized(paxosRWLock) {
+      // TODO
+    }
+  }
 
 
   // Server as Acceptor
@@ -195,8 +204,33 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
 
   @Override
   public void recordSuccess(PaxosState ballot) throws RemoteException {
-    // TODO
-    return;
+    boolean ledgerUpdateReady = false;
+
+    synchronized(paxosRWLock) {
+      // TODO - use certifyLeaderEraLP
+
+      // get id and check the stored ballot for success
+      int id = ballot.paxosId;
+      PaxosState storedBallot = liveBallots.get(id);
+      boolean alreadySucceeded = storedBallot != null &&
+          storedBallot.hasSucceeded;
+      
+      // if success is not yet known, record success
+      if (ledgerTopId < id && !alreadySucceeded) {
+        liveBallots.put(id, ballot);
+        
+        // if this success lets the ledger progress, update it
+        if (id == ledgerTopId + 1) {
+          ledgerUpdateReady = true;
+        }
+      }
+    }
+    
+    // update the ledger. down the road it might be better to handle ledger
+    // updates in a background job instead of handling them manually
+    if (ledgerUpdateReady) {
+      updateLedger();
+    }
   }
 
   @Override

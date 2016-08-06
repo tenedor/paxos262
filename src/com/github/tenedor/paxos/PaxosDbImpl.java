@@ -216,17 +216,12 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   @Override
   public boolean acceptBallot(PaxosState ballot) throws RemoteException {
     synchronized(paxosRWLock) {
-      // TODO - use certifyLeaderEraLP
+      // certify our era is up-to-date and return false for obsolete requests
+      if (!certifyLeaderEraLP(leaderEra)) return false;
 
-      // return false for obsolete requests
-      if (ballot.leaderEra.compareTo(leaderEra) < 0) {
-        return false;
-
-      // else, store the ballot and return true
-      } else {
-        liveBallots.put(ballot.paxosId, ballot);
-        return true;
-      }
+      // store the ballot and return true for valid requests
+      liveBallots.put(ballot.paxosId, ballot);
+      return true;
     }
   }
 
@@ -235,7 +230,8 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
     boolean ledgerUpdateReady = false;
 
     synchronized(paxosRWLock) {
-      // TODO - use certifyLeaderEraLP
+      // update leader era if we're behind
+      certifyLeaderEraLP(ballot.leaderEra);
 
       // get id and check the stored ballot for success
       int id = ballot.paxosId;

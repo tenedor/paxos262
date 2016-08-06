@@ -95,9 +95,9 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
       new HashMap<Integer, PaxosValueRequest>();
 
   /**
-   * The current set of acceptors.
+   * The current set of legislators.
    */
-  private Map<String, PaxosDb> acceptors = new HashMap<String, PaxosDb>();
+  private Map<String, PaxosDb> legislators = new HashMap<String, PaxosDb>();
   
   /**
    * A lock for reading or writing paxos state. Methods that must be called with
@@ -442,15 +442,15 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   /**
    * XXX: temporary
    */
-  public void addAcceptor(String acceptorUid) throws RemoteException {
+  public void addLegislator(String legislatorUid) throws RemoteException {
     try {
-      // lookup acceptor in registry and add it to the acceptors list
-      PaxosDb acceptor = (PaxosDb) Naming.lookup("rmi://localhost/" +
-          acceptorUid);
-      acceptors.put(acceptorUid, acceptor);
+      // lookup legislator in registry and add it to the legislators list
+      PaxosDb legislator = (PaxosDb) Naming.lookup("rmi://localhost/" +
+          legislatorUid);
+      legislators.put(legislatorUid, legislator);
 
     } catch (Exception e) {
-      System.err.println("PaxosDbImpl#addAcceptor exception:");
+      System.err.println("PaxosDbImpl#addLegislator exception:");
       e.printStackTrace();
     }
   }

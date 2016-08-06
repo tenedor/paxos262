@@ -10,14 +10,13 @@ public interface PaxosDb extends Remote {
    * {@code paxosId}. This is equivalent to a multi-Paxos "prepare" request.
    *  
    * @param  paxosId   the largest paxos id to not report
-   * @param  leaderEra the era number of the leader making this request
-   * @param  leaderId  the id of the era's elected leader
+   * @param  leaderEra the leadership era when this request was made
    * @return           a set of Paxos states for existing Paxos instances, or
    *                   {@code null} if the era is out of date
    * @throws RemoteException
    */  
-  public Set<PaxosState> paxosStatesAfterId(int paxosId, int leaderEra,
-      String leaderId) throws RemoteException;
+  public Set<PaxosState> paxosStatesAfterId(int paxosId, LeaderEra leaderEra)
+      throws RemoteException;
 
   /**
    * A request to accept the specified ballot. Returning {@code true} signals
@@ -43,10 +42,10 @@ public interface PaxosDb extends Remote {
    * acceptor that it has not interacted with recently to forestall a leader
    * election.
    *
-   * @param leaderEra the era number of the leader making this request
+   * @param leaderEra the leadership era when this ping was sent
    * @throws RemoteException
    */
-  public void ping(int leaderEra) throws RemoteException;
+  public void ping(LeaderEra leaderEra) throws RemoteException;
 
   /**
    * A request to pass the specified value. Returning {@code true} signifies
@@ -63,27 +62,25 @@ public interface PaxosDb extends Remote {
    * Begin a leader election in a new era. This instruction will be ignored
    * unless the given era is more recent than the machine's current era.
    * 
-   * @param leaderEra the new era of the leader election
+   * @param leaderEra the era of the new leader election
    * @throws RemoteException
    */
-  public void beginLeaderElection(int leaderEra) throws RemoteException;
+  public void beginLeaderElection(LeaderEra leaderEra) throws RemoteException;
 
   /**
    * Tell this machine the result of a leader election.
    * 
-   * @param leaderEra the election's era number
-   * @param leaderId  the elected leader's id
+   * @param leaderEra the era resulting from a leader election
    * @throws RemoteException
    */
-  public void declareLeader(int leaderEra, String leaderId)
-      throws RemoteException;
+  public void declareLeader(LeaderEra leaderEra) throws RemoteException;
 
   /**
    * The current leadership era and leader.
    * 
-   * @return the current leadership era number and leader id in a {@code Pair}
+   * @return the current leadership era
    * @throws RemoteException
    */
-  public Pair<Integer, String> leadershipState() throws RemoteException;
+  public LeaderEra leadershipState() throws RemoteException;
 
 }

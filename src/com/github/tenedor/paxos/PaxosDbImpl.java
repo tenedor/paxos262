@@ -57,16 +57,10 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   private Set<Integer> localDbEvaledRequestIds = new HashSet<Integer>();
 
   /**
-   * The current leadership era. This value increases each time a leader
-   * election begins.
+   * The current leadership era. The era increases each time a leader election
+   * begins or resolves.
    */  
-  private int leaderEra = 0;
-
-  /**
-   * The id of the machine that is currently leader. If a leader election is in
-   * progress, {@code leaderId} is the empty string.
-   */  
-  private String leaderId = "";
+  private LeaderEra leaderEra = new LeaderEra(0, "");
 
   /**
    * Ballots accepted by this server with {@code paxosId}s higher than
@@ -184,11 +178,11 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   // ------------------
 
   @Override
-  public Set<PaxosState> paxosStatesAfterId(int paxosId, int leaderEra,
-      String leaderId) throws RemoteException {
+  public Set<PaxosState> paxosStatesAfterId(int paxosId, LeaderEra leaderEra)
+      throws RemoteException {
     synchronized(paxosRWLock) {
       // certify our era is up-to-date and return null for obsolete requests
-      if (!certifyLeaderEraLP(leaderEra, leaderId)) return null;
+      if (!certifyLeaderEraLP(leaderEra)) return null;
       
       // collect the ids of missing ledger values known by the leader
       Set<Integer> resultsToLearn = new HashSet<Integer>();
@@ -225,7 +219,7 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
       // TODO - use certifyLeaderEraLP
 
       // return false for obsolete requests
-      if (ballot.leaderEra < leaderEra) {
+      if (ballot.leaderEra.compareTo(leaderEra) < 0) {
         return false;
 
       // else, store the ballot and return true
@@ -268,7 +262,7 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   }
 
   @Override
-  public void ping(int leaderEra) throws RemoteException {
+  public void ping(LeaderEra leaderEra) throws RemoteException {
     // TODO
     return;
   }
@@ -320,7 +314,7 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
    * @return {@code true} if a leader election is occurring, else {@code false}
    */
   private final boolean inLeaderElectionLP() {
-    return leaderId.isEmpty();
+    return leaderEra.inElection();
   }
   
   /**
@@ -329,32 +323,7 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
    * @return {@code true} if this machine is the leader, else {@code false}
    */
   private final boolean isLeaderLP() {
-    return leaderId.equals(uid);
-  }
-  
-  /**
-   * Compare a leadership era to the current era, accounting for both the era
-   * number and whether an election has completed. Returns -1 if the given era
-   * is earlier than the current era, +1 if it is later, and 0 if they are
-   * equal.
-   * 
-   * @param  leaderEra the leadership era's number
-   * @param  leaderId  the elected leader's id, empty if an election is in
-   *                  progress
-   * @return          -1 if the given era is earlier than the current era, +1 if
-   *                  it is later, and 0 if they are equal
-   */
-  private int compareToCurrentLeaderEraLP(int leaderEra, String leaderId) {
-    // compare the era numbers
-    int cmpEra = leaderEra < this.leaderEra ? -1
-        : leaderEra > this.leaderEra ? +1 : 0;
-        
-    // compare the election statuses
-    int cmpId = leaderId.isEmpty() ? (this.leaderId.isEmpty() ? 0 : -1)
-        : this.leaderId.isEmpty() ? +1 : 0;
-    
-    // judge equality first by era, then by election status
-    return cmpEra == 0 ? cmpId : cmpEra;
+    return leaderEra.leaderId.equals(uid);
   }
   
   /**
@@ -362,27 +331,25 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
    * fast-forwarding from an older era if necessary. If the specified era is in
    * the past, it cannot be certified and {@code false} is returned.
    * 
-   * @param  leaderEra the leadership era's number
-   * @param  leaderId  the elected leader's id, empty if an election is in
-   *                  progress
-   * @return          {@code false} if the era could not be certified, else
-   *                  {@code true}
+   * @param  targetEra the leadership era to certify
+   * @return           {@code false} if the era could not be certified, else
+   *                   {@code true}
    */
-  private boolean certifyLeaderEraLP(int leaderEra, String leaderId) {
-    // compare this era to the current era
-    int cmp = compareToCurrentLeaderEraLP(leaderEra, leaderId);
+  private boolean certifyLeaderEraLP(LeaderEra targetEra) {
+    // compare the target era to the current era
+    int cmp = targetEra.compareTo(this.leaderEra);
     
-    // if this era has been passed, it cannot be certified
+    // if the target era has been passed, it cannot be certified
     if (cmp < 0) {
       return false;
 
-    // if this era is ahead of the present one, fast-forward to it
+    // if the target era is ahead of the present one, fast-forward to it
     } else if (cmp > 0) {
       // as appropriate, either start a new election or conclude a leader
-      if (leaderId.isEmpty()) {
-        beginLeaderElectionLP(leaderEra);
+      if (targetEra.inElection()) {
+        beginLeaderElectionLP(targetEra);
       } else {
-        declareLeaderLP(leaderEra, leaderId);
+        declareLeaderLP(targetEra);
       }
     }
     
@@ -391,7 +358,7 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   }
 
   @Override
-  public void beginLeaderElection(int leaderEra) throws RemoteException {
+  public void beginLeaderElection(LeaderEra leaderEra) throws RemoteException {
     // acquire lock and begin election
     synchronized(paxosRWLock) {
       beginLeaderElectionLP(leaderEra);
@@ -402,12 +369,12 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
    * Handles a new leader election. Must be called with {@code paxosRWLock}
    * held. See {@link #beginLeaderElection}.
    * 
-   * @param leaderEra the new era of the leader election
+   * @param leaderEra the era of the new leader election
    * @see #declareLeaderLP
    */
-  private void beginLeaderElectionLP(int leaderEra) {
+  private void beginLeaderElectionLP(LeaderEra leaderEra) {
     // ignore an old message
-    if (leaderEra <= this.leaderEra) {
+    if (leaderEra.compareTo(this.leaderEra) <= 0) {
       return;
     }
     
@@ -426,15 +393,13 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
 
     // update leader state
     this.leaderEra = leaderEra;
-    leaderId = "";
   }
 
   @Override
-  public void declareLeader(int leaderEra, String leaderId)
-      throws RemoteException {
+  public void declareLeader(LeaderEra leaderEra) throws RemoteException {
     // acquire lock and declare leader
     synchronized(paxosRWLock) {
-      declareLeaderLP(leaderEra, leaderId);
+      declareLeaderLP(leaderEra);
     }
   }
 
@@ -442,13 +407,12 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
    * Resolves a leader election. Must be called with {@code paxosRWLock} held.
    * See {@link #declareLeader}.
    * 
-   * @param leaderEra the election's era number
-   * @param leaderId the elected leader's id
+   * @param leaderEra the era resulting from a leader election
    * @see #beginLeaderElectionLP
    */
-  public void declareLeaderLP(int leaderEra, String leaderId) {
+  public void declareLeaderLP(LeaderEra leaderEra) {
     // ignore an old message
-    if (leaderEra < this.leaderEra) {
+    if (leaderEra.compareTo(this.leaderEra) < 0) {
       return;
     }
 
@@ -459,7 +423,6 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
 
     // update leader state
     this.leaderEra = leaderEra;
-    this.leaderId = leaderId;
 
     // deal with leadership era set-up
     if (isLeaderLP()) {
@@ -470,9 +433,9 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   }
   
   @Override
-  public Pair<Integer, String> leadershipState() throws RemoteException {
+  public LeaderEra leadershipState() throws RemoteException {
     synchronized(paxosRWLock) {
-      return Pair.of(leaderEra, leaderId);
+      return leaderEra;
     }
   }
 

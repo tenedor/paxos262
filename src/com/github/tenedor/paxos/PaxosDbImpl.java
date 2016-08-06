@@ -269,22 +269,52 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
 
   @Override
   public boolean requestValue(PaxosValue value) throws RemoteException {
+    // the value request and its associated condition
     Condition cond = paxosRWLock.newCondition();
     PaxosValueRequest request = new PaxosValueRequest(value, cond);
 
-    paxosRWLock.lock();
-    try {
-      valueRequests.put(value.requestId, request);
-      while(!request.succeeded) {
-        cond.await();
-      }
-      return true;
-      
-    } catch (InterruptedException e) {
-      return false;
+    synchronized(paxosRWLock) {
+      // if this request is already registered, listen on the existing request.
+      // assert that the registered request's value matches the new one.
+      if (valueRequests.containsKey(value.requestId)) {
+        request = valueRequests.get(value.requestId);
+        request.requesterCount++;
+        cond = request.success;
+        assert(request.value.equals(value));
 
-    } finally {
-      paxosRWLock.unlock();
+      // else, register the new request
+      } else {
+        valueRequests.put(value.requestId, request);
+      }
+
+      // wait for the request to succeed
+      while(!request.succeeded) {
+        // quit if not the leader
+        if (!isLeaderLP()) {
+          // decrement requester count. remove request if no requesters remain
+          request.requesterCount--;
+          if (request.requesterCount == 0) {
+            valueRequests.remove(value.requestId);
+          }
+          
+          // return false if not the leader
+          return false;
+        }
+
+        // wait to be signaled
+        cond.awaitUninterruptibly();
+      }
+      
+      // success:
+
+      // decrement requester count. remove request if no requesters remain
+      request.requesterCount--;
+      if (request.requesterCount == 0) {
+        valueRequests.remove(value.requestId);
+      }
+      
+      // return success
+      return true;
     }
   }
   

@@ -6,6 +6,7 @@ public class PaxosValueRequest {
   public PaxosValue value;
   public boolean succeeded;
   public Condition success;
+  public int requesterCount = 1;
 
   public PaxosValueRequest(PaxosValue value, Condition success) {
     this.value = value;

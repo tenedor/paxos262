@@ -48,15 +48,15 @@ public interface PaxosDb extends Remote {
   public void ping(LeaderEra leaderEra) throws RemoteException;
 
   /**
-   * A request to pass the specified value. Returning {@code true} signifies
-   * success. If this machine is not the leader or loses leadership, this will
-   * return {@code false}.
+   * A request from a legislator to pass the specified value. Returning
+   * {@code true} signifies success. If this machine is not the leader or loses
+   * leadership, this will return {@code false}.
    *
-   * @param  request the value to pass
-   * @return         {@code true} if the value has been passed
+   * @param  value the value to pass
+   * @return       {@code true} if the value has been passed
    * @throws RemoteException
    */
-  public boolean requestValue(PaxosValue request) throws RemoteException;
+  public boolean requestValue(PaxosValue value) throws RemoteException;
 
   /**
    * Begin a leader election in a new era. This instruction will be ignored

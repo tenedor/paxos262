@@ -283,6 +283,11 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
     PaxosValueRequest request = new PaxosValueRequest(value, cond);
 
     synchronized(paxosRWLock) {
+      // return if this request has already been fulfilled
+      if (fulfilledRequestIds.contains(value.requestId)) {
+        return true;
+      }
+
       // if this request is already registered, listen on the existing request.
       // assert that the registered request's value matches the new one.
       if (valueRequests.containsKey(value.requestId)) {

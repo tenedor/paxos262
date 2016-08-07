@@ -6,6 +6,16 @@ import java.util.*;
 public interface PaxosDb extends Remote {
 
   /**
+   * A request from a client to pass the specified value. Returning {@code true}
+   * signifies success.
+   *
+   * @param  value the value to pass
+   * @return       {@code true} if the value has been passed
+   * @throws RemoteException
+   */
+  public boolean clientRequest(PaxosValue value) throws RemoteException;
+
+  /**
    * Return the paxos states for each existing Paxos instance following
    * {@code paxosId}. This is equivalent to a multi-Paxos "prepare" request.
    * <p>

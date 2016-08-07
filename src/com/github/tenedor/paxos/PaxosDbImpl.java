@@ -182,6 +182,68 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   }
 
 
+  // Client Handling
+  // ---------------
+
+  @Override
+  public boolean clientRequest(PaxosValue value) throws RemoteException {
+    // return if this request has already been fulfilled
+    synchronized (paxosRWLock) {
+      if (fulfilledRequestIds.contains(value.requestId)) {
+        return true;
+      }
+    }
+
+    /**
+     * TODO:
+     *   * This thread should add itself to a registry. This entry likely
+     *     includes thread id, creation timestamp, era number, and request id.
+     *     
+     *   * A system thread should watch the registry for unresolved requests
+     *     that have been around a long time and other signs that a new leader
+     *     is needed.
+     *     
+     *   * This thread should be interrupted if it is still waiting on an old
+     *     era when a new leader is elected: the old leader may be slowed or
+     *     stopped and this thread could hang a long time. Java RMI doesn't
+     *     allow interruptions, but the Interruptible RMI library may be useful.
+     *     
+     *   * This call should eventually timeout and throw a TimeoutException.
+     */
+
+    PaxosDb leader;
+    
+    while (true) {
+      // get the leader, waiting for an election result if necessary
+      synchronized (paxosRWLock) {
+        leader = currentLeaderLP();
+        while(leader == null) {
+          leaderElected.awaitUninterruptibly();
+          leader = currentLeaderLP();
+        }
+      }
+
+      // request that the leader pass this value
+      try {
+        boolean success = leader.requestValue(value);
+
+        // success: remove thread id from registry and return true
+        if (success) {
+          return true;
+        }
+
+      // leadership exception: update the leader era and try again
+      } catch (LeaderEraException e) {
+        synchronized(paxosRWLock) {
+          certifyLeaderEraLP(e.currentEra);
+        }
+        
+      // remote exception: try again
+      } catch (RemoteException e) {
+      }
+    }
+  }
+
   // Server as Acceptor
   // ------------------
 
@@ -370,6 +432,15 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
    */
   private final boolean isLeaderLP() {
     return leaderEra.leaderId.equals(uid);
+  }
+  
+  /**
+   * The current leader, if one exists, else {@code null}.
+   * 
+   * @return the current leader, if one exists, else {@code null}
+   */
+  private final PaxosDb currentLeaderLP() {
+    return legislators.get(leaderEra.leaderId);
   }
   
   /**

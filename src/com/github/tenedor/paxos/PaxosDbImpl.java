@@ -51,10 +51,11 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   private Hashtable<String, String> localDb = new Hashtable<String, String>();
 
   /**
-   * The ids of all evaluated update requests. Only requests with new ids update
-   * {@link #localDb}.
+   * The ids of all fulfilled update requests. Client and server requests with
+   * already-fulfilled ids return immediately. Passed requests that have already
+   * been fulfilled are added to the ledger but do not update {@link #localDb}.
    */
-  private Set<Integer> localDbEvaledRequestIds = new HashSet<Integer>();
+  private Set<Integer> fulfilledRequestIds = new HashSet<Integer>();
 
   /**
    * The current leadership era. The era increases each time a leader election
@@ -163,9 +164,9 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
         ledger.add(entry);
         
         // update the database, unless this update has already been applied
-        if (!localDbEvaledRequestIds.contains(entry.value.requestId)) {
+        if (!fulfilledRequestIds.contains(entry.value.requestId)) {
           localDb.put(entry.value.key, entry.value.value);
-          localDbEvaledRequestIds.add(entry.value.requestId);
+          fulfilledRequestIds.add(entry.value.requestId);
         }
 
         // update the ledger top id

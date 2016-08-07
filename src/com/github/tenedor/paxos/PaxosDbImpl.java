@@ -107,6 +107,12 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
    */
   private final Lock paxosRWLock = new ReentrantLock();
 
+  /**
+   * A condition that is signalAll'ed each time a leader election resolves.
+   * Methods can wait on this condition to be woken up when a leader is elected.
+   */
+  private final Condition leaderElected = paxosRWLock.newCondition();
+
 
   // Constructors
   // ------------
@@ -470,6 +476,9 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
     } else {
       // TODO
     }
+    
+    // signal a new leadership era
+    leaderElected.signalAll();
   }
   
   @Override

@@ -80,16 +80,17 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
 
   // TODO: how big should the initial capacity be?
   /**
-   * The set of values to pass, keyed by request id. When a request is selected
-   * by a Paxos instance it is moved to the {@code #valuesBeingPassed} map.
-   * Value requests are accessible both by LRU-ordered iteration and by key.
+   * The set of values to pass, keyed by request id. This is only used by the
+   * server in its role as leader. When a request is selected by a Paxos
+   * instance it is moved to the {@code #valuesBeingPassed} map. Value requests
+   * are accessible both by LRU-ordered iteration and by key.
    */
   private LinkedHashMap<Integer, PaxosValueRequest> valueRequests =
       new LinkedHashMap<Integer, PaxosValueRequest>(100, 0.75f, true);
 
   /**
    * The set of values currently being passed by Paxos instances, keyed by
-   * request id.
+   * request id. This is only used by the server in its role as leader.
    */
   private Map<Integer, PaxosValueRequest> valuesBeingPassed =
       new HashMap<Integer, PaxosValueRequest>();

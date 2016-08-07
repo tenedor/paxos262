@@ -179,10 +179,12 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
 
   @Override
   public Set<PaxosState> paxosStatesAfterId(int paxosId, LeaderEra leaderEra)
-      throws RemoteException {
+      throws LeaderEraException, RemoteException {
     synchronized(paxosRWLock) {
-      // certify our era is up-to-date and return null for obsolete requests
-      if (!certifyLeaderEraLP(leaderEra)) return null;
+      // certify our era is up-to-date; throw exception if request is obsolete
+      if (!certifyLeaderEraLP(leaderEra)) {
+        throw new LeaderEraException(leaderEra);
+      }
       
       // collect the ids of missing ledger values known by the leader
       Set<Integer> resultsToLearn = new HashSet<Integer>();
@@ -214,10 +216,13 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   }
 
   @Override
-  public boolean acceptBallot(PaxosState ballot) throws RemoteException {
+  public boolean acceptBallot(PaxosState ballot)
+      throws LeaderEraException, RemoteException {
     synchronized(paxosRWLock) {
-      // certify our era is up-to-date and return false for obsolete requests
-      if (!certifyLeaderEraLP(leaderEra)) return false;
+      // certify our era is up-to-date; throw exception if request is obsolete
+      if (!certifyLeaderEraLP(leaderEra)) {
+        throw new LeaderEraException(leaderEra);
+      }
 
       // store the ballot and return true for valid requests
       liveBallots.put(ballot.paxosId, ballot);
@@ -258,7 +263,8 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   }
 
   @Override
-  public void ping(LeaderEra leaderEra) throws RemoteException {
+  public void ping(LeaderEra leaderEra)
+      throws LeaderEraException, RemoteException {
     // TODO
     return;
   }
@@ -268,7 +274,8 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   // ----------------
 
   @Override
-  public boolean requestValue(PaxosValue value) throws RemoteException {
+  public boolean requestValue(PaxosValue value)
+      throws LeaderEraException, RemoteException {
     // the value request and its associated condition
     Condition cond = paxosRWLock.newCondition();
     PaxosValueRequest request = new PaxosValueRequest(value, cond);
@@ -297,8 +304,8 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
             valueRequests.remove(value.requestId);
           }
           
-          // return false if not the leader
-          return false;
+          // throw leader era exception
+          throw new LeaderEraException(leaderEra);
         }
 
         // wait to be signaled

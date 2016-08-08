@@ -13,7 +13,8 @@ public interface PaxosDb extends Remote {
    * @return       {@code true} if the value has been passed
    * @throws RemoteException
    */
-  public boolean clientRequest(PaxosValue value) throws RemoteException;
+  public boolean clientRequest(PaxosValue value)
+      throws BusyReplicaException, RemoteException;
 
   /**
    * Return the paxos states for each existing Paxos instance following

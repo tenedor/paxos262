@@ -191,11 +191,18 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
   // ---------------
 
   @Override
-  public boolean clientRequest(PaxosValue value) throws RemoteException {
-    // return if this request has already been fulfilled
+  public boolean clientRequest(PaxosValue value)
+      throws BusyReplicaException, RemoteException {
     synchronized (paxosRWLock) {
+      // return if this request has already been fulfilled
       if (fulfilledRequestIds.contains(value.requestId)) {
         return true;
+      }
+
+      // reject this request if this server is currently the leader - tell the
+      // client to switch replicas
+      if (isLeaderLP()) {
+        throw new BusyReplicaException();
       }
     }
 

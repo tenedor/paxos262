@@ -1,6 +1,9 @@
 package com.github.tenedor.paxos;
 
-public class LeaderEra {
+import java.io.Serializable;
+
+public class LeaderEra implements Serializable {
+
   /**
    * The leadership era. This value increases each time a leader election
    * begins.
@@ -12,6 +15,11 @@ public class LeaderEra {
    * is the empty string.
    */  
   public String leaderId;
+
+  /**
+   * version uid for serializability
+   */
+  private static final long serialVersionUID = 6911303728053035330L;
 
   public LeaderEra(int era, String leaderId) {
     this.era = era;
@@ -45,5 +53,33 @@ public class LeaderEra {
     
     // judge equality first by era, then by election status
     return cmpEra == 0 ? cmpId : cmpEra;
+  }
+
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + era;
+    result = prime * result + ((leaderId == null) ? 0 : leaderId.hashCode());
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    LeaderEra other = (LeaderEra) obj;
+    if (era != other.era)
+      return false;
+    if (leaderId == null) {
+      if (other.leaderId != null)
+        return false;
+    } else if (!leaderId.equals(other.leaderId))
+      return false;
+    return true;
   }
 }

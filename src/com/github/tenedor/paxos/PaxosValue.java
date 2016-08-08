@@ -1,9 +1,16 @@
 package com.github.tenedor.paxos;
 
-public class PaxosValue {
+import java.io.Serializable;
+
+public class PaxosValue implements Serializable {
   public String key;
   public String value;
   public int requestId;
+
+  /**
+   * version uid for serializability
+   */
+  private static final long serialVersionUID = -226462197189407130L;
 
   @Override
   public String toString() {

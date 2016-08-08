@@ -1,8 +1,7 @@
 /**
+ * An implementation of Paxos.
  * 
- */
-/**
- * @author daniel
+ * @author Daniel Windham
  *
  */
 package com.github.tenedor.paxos;

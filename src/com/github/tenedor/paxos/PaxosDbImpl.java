@@ -113,6 +113,11 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
    */
   private final Condition leaderElected = paxosRWLock.newCondition();
 
+  /**
+   * version uid for serializability
+   */
+  private static final long serialVersionUID = -4840150450504062218L;
+
 
   // Constructors
   // ------------

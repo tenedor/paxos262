@@ -539,7 +539,7 @@ public class PaxosDbImpl extends UnicastRemoteObject implements PaxosDb {
    * @param leaderEra the era resulting from a leader election
    * @see #beginLeaderElectionLP
    */
-  public void declareLeaderLP(LeaderEra leaderEra) {
+  private void declareLeaderLP(LeaderEra leaderEra) {
     // ignore an old message
     if (leaderEra.compareTo(this.leaderEra) < 0) {
       return;
